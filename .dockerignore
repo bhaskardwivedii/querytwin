@@ -1,0 +1,7 @@
+data/quora_duplicate_questions.tsv
+data/*.part
+tests/
+deliver/
+**/__pycache__
+.pytest_cache
+README.template.md

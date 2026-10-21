@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Duplicate Question Detector</title>
+<style>
+  :root {
+    --bg: #f7f6f3; --panel: #ffffff; --ink: #1c1b19; --muted: #6b6860; --line: #e4e1da;
+    --accent: #2a5bd7; --dup: #1f8a4c; --dup-bg: #e6f4ec; --nodup: #b4472a; --nodup-bg: #fbebe5;
+    --track: #ece9e2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141413; --panel: #1d1d1b; --ink: #ecebe6; --muted: #9a978e; --line: #2f2e2b;
+      --accent: #7aa2ff; --dup: #5cc98a; --dup-bg: #1b2e23; --nodup: #f08a6a; --nodup-bg: #33201a;
+      --track: #2a2926;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 40px 16px 64px; }
+  h1 { font-size: 26px; letter-spacing: -0.02em; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 24px; }
+  .stats { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+  .stats b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
+  .tab { background: none; border: 0; padding: 10px 14px; font: inherit; color: var(--muted); cursor: pointer;
+         border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tab[aria-selected="true"] { color: var(--ink); border-color: var(--accent); font-weight: 600; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px; }
+  label { display: block; font-size: 13px; font-weight: 600; margin: 0 0 6px; }
+  textarea, input { width: 100%; font: inherit; color: var(--ink); background: var(--bg);
+         border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; resize: vertical; }
+  textarea:focus, input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .field { margin-bottom: 14px; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .btn { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 10px 18px;
+         font: inherit; font-weight: 600; cursor: pointer; }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { background: none; border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px;
+          font: inherit; font-size: 12px; color: var(--muted); cursor: pointer; }
+  .chip:hover { color: var(--ink); border-color: var(--muted); }
+  .result { margin-top: 18px; padding: 16px; border-radius: 10px; display: none; }
+  .result.dup { display: block; background: var(--dup-bg); }
+  .result.nodup { display: block; background: var(--nodup-bg); }
+  .verdict { font-weight: 700; font-size: 18px; }
+  .dup .verdict { color: var(--dup); } .nodup .verdict { color: var(--nodup); }
+  .meter { height: 8px; background: var(--track); border-radius: 99px; overflow: hidden; margin-top: 10px; position: relative; }
+  .meter > span { display: block; height: 100%; border-radius: 99px; transition: width .4s; }
+  .dup .meter > span { background: var(--dup); } .nodup .meter > span { background: var(--nodup); }
+  .hits { list-style: none; padding: 0; margin: 18px 0 0; }
+  .hit { display: grid; grid-template-columns: 1fr 64px; gap: 12px; align-items: center;
+         padding: 12px 0; border-top: 1px solid var(--line); }
+  .hit .q { overflow-wrap: anywhere; }
+  .hit .p { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .hit .bar { grid-column: 1 / -1; height: 4px; background: var(--track); border-radius: 99px; overflow: hidden; }
+  .hit .bar span { display: block; height: 100%; background: var(--muted); }
+  .hit.isdup .p { color: var(--dup); } .hit.isdup .bar span { background: var(--dup); }
+  .tag { font-size: 11px; font-weight: 700; color: var(--dup); text-transform: uppercase; letter-spacing: .05em; margin-left: 6px; }
+  .meta { color: var(--muted); font-size: 13px; margin-top: 10px; }
+  .err { color: var(--nodup); margin-top: 12px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Duplicate Question Detector</h1>
+  <p class="sub">TF‑IDF + engineered similarity features + gradient boosting, trained on Quora Question Pairs.</p>
+  <div class="stats" id="stats">Loading model…</div>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true" data-tab="pair">Compare two questions</button>
+    <button class="tab" role="tab" aria-selected="false" data-tab="search">Find duplicates</button>
+  </div>
+
+  <section class="panel" id="pair">
+    <div class="field"><label for="q1">Question 1</label>
+      <textarea id="q1" rows="2">How can I learn Python quickly?</textarea></div>
+    <div class="field"><label for="q2">Question 2</label>
+      <textarea id="q2" rows="2">What is the fastest way to learn Python programming?</textarea></div>
+    <div class="row">
+      <button class="btn" id="go">Check</button>
+      <div class="chips" id="examples"></div>
+    </div>
+    <div class="result" id="res">
+      <div class="verdict" id="verdict"></div>
+      <div class="meter"><span id="bar"></span></div>
+      <div class="meta" id="prob"></div>
+    </div>
+    <div class="err" id="err1" hidden></div>
+  </section>
+
+  <section class="panel" id="search" hidden>
+    <div class="field"><label for="sq">New question</label>
+      <input id="sq" value="How do I improve my English speaking skills?"></div>
+    <div class="row"><button class="btn" id="sgo">Search question bank</button></div>
+    <ul class="hits" id="hits"></ul>
+    <div class="meta" id="smeta"></div>
+    <div class="err" id="err2" hidden></div>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const EX = [
+  ["Same intent", "How do I lose weight fast?", "What is the quickest way to lose weight?"],
+  ["Same words, different meaning", "How do I become a data scientist after engineering?", "How do I become an engineer after data science?"],
+  ["Different topic", "What is the best laptop for programming?", "What is the best phone for photography?"],
+];
+EX.forEach(([name, a, b]) => {
+  const c = document.createElement("button"); c.className = "chip"; c.textContent = name;
+  c.onclick = () => { $("q1").value = a; $("q2").value = b; check(); };
+  $("examples").appendChild(c);
+});
+document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
+  document.querySelectorAll(".tab").forEach(x => x.setAttribute("aria-selected", x === t));
+  $("pair").hidden = t.dataset.tab !== "pair"; $("search").hidden = t.dataset.tab !== "search";
+});
+async function post(url, body) {
+  const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error((await r.json()).detail || r.statusText);
+  return r.json();
+}
+async function check() {
+  $("err1").hidden = true; $("go").disabled = true;
+  try {
+    const d = await post("/predict", { question1: $("q1").value, question2: $("q2").value });
+    const pct = (d.probability * 100).toFixed(1);
+    $("res").className = "result " + (d.duplicate ? "dup" : "nodup");
+    $("verdict").textContent = d.duplicate ? "Duplicate" : "Not a duplicate";
+    $("bar").style.width = pct + "%";
+    $("prob").textContent = `Duplicate probability ${pct}%`;
+  } catch (e) { $("err1").textContent = e.message; $("err1").hidden = false; }
+  $("go").disabled = false;
+}
+async function search() {
+  $("err2").hidden = true; $("sgo").disabled = true; $("hits").innerHTML = "";
+  try {
+    const d = await post("/search", { question: $("sq").value, top_k: 6 });
+    d.results.forEach(h => {
+      const li = document.createElement("li"); li.className = "hit" + (h.duplicate ? " isdup" : "");
+      const q = document.createElement("div"); q.className = "q"; q.textContent = h.question;
+      if (h.duplicate) { const t = document.createElement("span"); t.className = "tag"; t.textContent = "duplicate"; q.appendChild(t); }
+      const p = document.createElement("div"); p.className = "p"; p.textContent = (h.probability * 100).toFixed(0) + "%";
+      const bar = document.createElement("div"); bar.className = "bar";
+      bar.innerHTML = `<span style="width:${h.probability * 100}%"></span>`;
+      li.append(q, p, bar); $("hits").appendChild(li);
+    });
+    $("smeta").textContent = `Retrieved and re-ranked in ${d.ms} ms`;
+  } catch (e) { $("err2").textContent = e.message; $("err2").hidden = false; }
+  $("sgo").disabled = false;
+}
+$("go").onclick = check; $("sgo").onclick = search;
+$("sq").addEventListener("keydown", e => { if (e.key === "Enter") search(); });
+fetch("/health").then(r => r.json()).then(h => {
+  const names = { xgb: "XGBoost", lr: "Logistic Regression", rf: "Random Forest", ens: "LR + XGBoost ensemble" };
+  $("stats").innerHTML = `<span>Model <b>${names[h.model] || h.model}</b></span>` +
+    (h.test_accuracy ? `<span>Test accuracy <b>${(h.test_accuracy * 100).toFixed(1)}%</b></span>` : "") +
+    (h.test_f1 ? `<span>Test F1 <b>${h.test_f1.toFixed(3)}</b></span>` : "") +
+    `<span>Trained on <b>${(h.trained_on_pairs || 0).toLocaleString()}</b> pairs</span>` +
+    `<span>Question bank <b>${h.indexed_questions.toLocaleString()}</b></span>`;
+}).catch(() => { $("stats").textContent = "Model not loaded"; });
+</script>
+</body>
+</html>

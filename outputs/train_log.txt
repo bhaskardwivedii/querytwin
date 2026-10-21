@@ -1,0 +1,29 @@
+[00:09:54] dataset=quora  pairs=404,287  duplicate rate=0.369
+[00:09:55] added 10,000 contrastive (antonym-swap) negatives to the training split only
+[00:09:55] split sizes: train=333,429, val=40,429, test=40,429
+[00:09:55] fitting TF-IDF vectorisers on training questions ...
+[00:11:24] featurising train ...
+[00:12:51] featurising val ...
+[00:13:01] featurising test ...
+[00:13:12] sparse width=40,000  dense features=245
+[00:13:12] training Logistic Regression ...
+[00:19:17]    C=4.0  val log-loss=0.3487
+[00:26:14]    C=12.0 val log-loss=0.3524
+[00:26:15]    Logistic Regression: test acc=0.8367 P=0.7791 R=0.7782 F1=0.7786 AUC=0.9148
+[00:26:15] training Random Forest ...
+[00:32:03]    Random Forest: test acc=0.7979 P=0.7312 R=0.7159 F1=0.7235 AUC=0.8825
+[00:32:03] training XGBoost ...
+[00:36:30]    best iteration=1437
+[00:36:32]    XGBoost: test acc=0.8317 P=0.7726 R=0.7710 F1=0.7718 AUC=0.9133
+[00:36:33]    Ensemble (LR weight 0.55): test acc=0.8510 P=0.8021 R=0.7918 F1=0.7969 AUC=0.9295
+[00:36:33] best model by validation F1: Ensemble (LR + XGBoost)
+[00:36:35] done in 1602s. artefacts in outputs/
+
+| Model | Accuracy | Precision | Recall | F1 | ROC-AUC | Train time |
+|---|---|---|---|---|---|---|
+| Logistic Regression | 0.8367 | 0.7791 | 0.7782 | 0.7786 | 0.9148 | 782.5s |
+| Random Forest | 0.7979 | 0.7312 | 0.7159 | 0.7235 | 0.8825 | 347.6s |
+| XGBoost | 0.8317 | 0.7726 | 0.7710 | 0.7718 | 0.9133 | 268.1s |
+| Ensemble (LR + XGBoost) * | 0.8510 | 0.8021 | 0.7918 | 0.7969 | 0.9295 | 1050.6s |
+\* best on validation F1. Metrics are on the held-out test split at threshold 0.5.
+

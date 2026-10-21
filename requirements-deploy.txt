@@ -1,0 +1,14 @@
+# Runtime-only dependencies for serving (no training/test extras).
+# Versions of scikit-learn and xgboost are pinned to the ones the model was trained with
+# (pickled models are only guaranteed to load on the same version).
+# xgboost-cpu is the same library without the ~200 MB CUDA/NCCL payload.
+numpy>=1.26
+scipy>=1.11
+pandas>=2.1
+scikit-learn==1.9.1
+xgboost-cpu==3.4.1
+rapidfuzz>=3.0
+nltk>=3.8
+joblib>=1.3
+fastapi>=0.110
+uvicorn>=0.29

@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+data/*.tsv
+data/*.csv
+!data/question_bank.txt
+data/*.part
+.venv/

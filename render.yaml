@@ -1,0 +1,17 @@
+# Render Blueprint: New + > Blueprint > pick this repo. Free plan, Python web service.
+services:
+  - type: web
+    name: querytwin
+    runtime: python
+    plan: free
+    region: singapore
+    buildCommand: pip install -r requirements-deploy.txt
+    startCommand: uvicorn qqp.api:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: QQP_CORPUS
+        value: data/question_bank.txt
+      - key: QQP_CORPUS_N
+        value: "30000"
